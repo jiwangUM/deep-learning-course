@@ -378,7 +378,17 @@ def conv_forward(x, w):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    H_prime = H - (HH - 1)
+    W_prime = W - (WW - 1)
+    out = np.zeros((N, F, H_prime, W_prime))
+    
+    for n in range(N):
+        for f in range(F):
+            for i in range(H_prime):
+                for j in range(W_prime):
+                    out[n, f, i, j] = np.sum(x[n, :, i:i+HH, j:j+WW] * w[f])
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -400,7 +410,31 @@ def conv_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    x, w = cache
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    H_prime = H - (HH - 1)
+    W_prime = W - (WW - 1)
+    dx = np.empty_like(x)
+    dw = np.empty_like(w)
+    
+    #compute dx
+    padH = HH-1
+    padW = WW-1
+    dout_pad = np.pad(dout, [(0,0), (0,0), (padH, padH), (padW, padW)], 'constant')
+    w_flip = np.empty_like(w)
+    w_flip[:, :, :, :] = w[:, :, ::-1, ::-1]
+    for n in range(N):
+        for c in range(C):
+            for i in range(H):
+                for j in range(W):
+                    dx[n, c, i, j] = np.sum(dout_pad[n, :, i:i+HH, j:j+WW] * w_flip[:,c,:,:])
+    
+    for f in range(F):
+        for c in range(C):
+            for i in range(HH):
+                for j in range(WW):
+                    dw[f, c, i, j] = np.sum(dout[:, f, :, :] * x[:,c,i:i+H_prime,j:j+W_prime])
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -430,7 +464,26 @@ def max_pool_forward(x, pool_param):
     ###########################################################################
     # TODO: Implement the max-pooling forward pass                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    stride = pool_param['stride']
+    H_prime = int(1 + (H - pool_height) / stride)
+    W_prime = int(1 + (W - pool_width) / stride) #python 3 / is just float number division
+    
+    out = np.zeros((N,C,H_prime,W_prime))
+    
+    for n in range(N):
+        for i in range(H_prime):
+            for j in range(W_prime):
+                h_start = i * stride
+                h_end = h_start + pool_height
+                w_start = j * stride
+                w_end = w_start + pool_width
+                pool_window = x[n, :, h_start:h_end, w_start:w_end]
+                pool_window = pool_window.reshape((C,-1))
+                out[n,:,i,j] = np.max(pool_window, axis=1)
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -453,7 +506,29 @@ def max_pool_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the max-pooling backward pass                           #
     ###########################################################################
-    pass
+    x, pool_param = cache
+    
+    N, C, H, W = x.shape
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    stride = pool_param['stride']
+    H_prime = int(1 + (H - pool_height) / stride)
+    W_prime = int(1 + (W - pool_width) / stride) #python 3 / is just float number division
+    
+    dx = np.zeros((N, C, H, W))
+    
+    for n in range(N):
+        for c in range(C):
+            for i in range(H_prime):
+                for j in range(W_prime):
+                    h_start = i * stride
+                    h_end = h_start + pool_height
+                    w_start = j * stride
+                    w_end = w_start + pool_width
+                    pool_window = x[n, c, h_start:h_end, w_start:w_end]
+                    maxValue = np.max(pool_window)
+                    dx[n,c,h_start:h_end,w_start:w_end] += dout[n,c,i,j] * (pool_window == maxValue)
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
