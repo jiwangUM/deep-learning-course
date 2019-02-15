@@ -545,7 +545,10 @@ def svm_loss(x, y):
   - loss: Scalar giving the loss
   - dx: Gradient of the loss with respect to x
   """
-
+  N = x.shape[0]
+  x = np.squeeze(x)
+  loss = np.sum(((1-x*y)>0)*(1-x*y))/N
+  dx = ((1-x*y)>0)*(-y)/N
   return loss, dx
 
 
@@ -560,7 +563,12 @@ def logistic_loss(x, y):
   - loss: Scalar giving the loss
   - dx: Gradient of the loss with respect to x
   """
-
+  N = x.shape[0]
+  x = np.squeeze(x)
+  y_prime = (y + 1)/2
+  h = 1 /(1 + np.exp(-x))
+  loss = np.sum(-np.log( (h**y_prime) * ((1-h)**(1-y_prime)) ))/N
+  dx = np.exp(-y*x)*(-y)/(1+np.exp(-y*x))/N
   return loss, dx
 
 
@@ -576,5 +584,13 @@ def softmax_loss(x, y):
   - loss: Scalar giving the loss
   - dx: Gradient of the loss with respect to x
   """
-
+  N, C = x.shape
+  loss, dx = 0, np.zeros(x.shape) 
+  for i in range(N):
+      loss += -np.log(np.exp(x[i,y[i]])/np.sum(np.exp(x[i,:])))
+      dx[i,:] = np.exp(x[i,:])/np.sum(np.exp(x[i,:]))
+      dx[i,y[i]] += (-1)
+      
+  loss /= N
+  dx /= N
   return loss, dx
