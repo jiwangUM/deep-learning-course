@@ -47,9 +47,9 @@ class ConvNet(object):
     # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
     # of the output affine layer.                                              #
     ############################################################################
-    self.param.['gamma'] = np.random.normal(0, weight_scale, 1)
-    self.beta = np.random.normal(0, weight_scale, 1)
-    self.bn_param = {}
+    #self.param.['gamma'] = np.random.normal(0, weight_scale, 1)
+    #self.beta = np.random.normal(0, weight_scale, 1)
+    #self.bn_param = {}
         
     C, H, W = input_dim
     pool_size = 2
@@ -62,7 +62,7 @@ class ConvNet(object):
     
     self.params['W1'] = np.random.normal(0, weight_scale, (num_filters, C, filter_size, filter_size)).astype(dtype)
     #self.params['b1'] = np.zeros((num_filters, H_prime, W_prime)).astype(dtype)
-    self.params['b1'] = np.zeros((1,num_filters,1,1)).astype(dtype)
+    self.params['b1'] = np.zeros(num_filters).astype(dtype)
     self.params['W2'] = np.random.normal(0, weight_scale, (num_filters*H_pool*W_pool, hidden_dim)).astype(dtype)
     self.params['b2'] = np.zeros(hidden_dim).astype(dtype)
     self.params['W3'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes)).astype(dtype)
@@ -99,7 +99,7 @@ class ConvNet(object):
     # variable.                                                                #
     ############################################################################
     a1, cache_a1 = conv_forward(X, W1)
-    a1 = a1 + b1
+    a1 = a1 + b1.reshape(1,b1.shape[0],1,1)
     h1, cache_h1 = relu_forward(a1)
     h1_maxpool, cache_h1_maxpool = max_pool_forward(h1, pool_param)
     a2, cache_a2 = fc_forward(h1_maxpool, W2, b2)
@@ -134,11 +134,11 @@ class ConvNet(object):
     dh1 = max_pool_backward(dh1_maxpool, cache_h1_maxpool)
     da1 = relu_backward(dh1, cache_h1)
     #grads['b1'] = da1.sum(axis=0)
-    grads['b1'] = da1.sum(axis=0).sum(axis=1).sum(axis=1).reshape((1,b1.shape[1],1,1))
+    grads['b1'] = da1.sum(axis=0).sum(axis=1).sum(axis=1)
     dx, grads['W1'] = conv_backward(da1, cache_a1)
     
-    print(grads['b1'].shape)
-    print(b1.shape)
+    #print(grads['b1'].shape)
+    #print(b1.shape)
     grads['W1'] += self.reg * self.params['W1']
     grads['b1'] += self.reg * self.params['b1']
     grads['W2'] += self.reg * self.params['W2']

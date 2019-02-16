@@ -13,18 +13,18 @@ X_train, y_train = train_set
 X_val, y_val     = val_set
 X_test, y_test   = test_set
 
-idx_train = np.random.randint(50000,size = 5000) 
-idx_val = np.random.randint(10000,size = 1000) 
-idx_test = np.random.randint(10000,size = 1000) 
-
-X_train = X_train[idx_train]
-y_train = y_train[idx_train]
-
-X_val = X_val[idx_val]
-y_val = y_val[idx_val]
-
-X_test = X_test[idx_val]
-y_test = y_test[idx_val]
+#idx_train = np.random.randint(50000,size = 5000) 
+#idx_val = np.random.randint(10000,size = 1000) 
+#idx_test = np.random.randint(10000,size = 1000) 
+#
+#X_train = X_train[idx_train]
+#y_train = y_train[idx_train]
+#
+#X_val = X_val[idx_val]
+#y_val = y_val[idx_val]
+#
+#X_test = X_test[idx_val]
+#y_test = y_test[idx_val]
 
 N_train = X_train.shape[0]
 N_val   = X_val.shape[0]
@@ -41,7 +41,7 @@ data = {
         'y_val': y_val,
         }
 
-model = ConvNet(num_filters=32, filter_size=7, hidden_dim=100, weight_scale=1e-3, reg=0.0)
+model = ConvNet(num_filters=1, filter_size=7, hidden_dim=15, weight_scale=1e-1, reg=0.001)
 
 
 solver = Solver(model, data,
@@ -51,7 +51,7 @@ solver = Solver(model, data,
                 'learning_rate': 1e-2,
               },
               lr_decay=0.99995,
-              num_epochs=10, batch_size=100,
+              num_epochs=10, batch_size=10,
               print_every=100)
 
 solver.train()
