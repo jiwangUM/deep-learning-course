@@ -47,13 +47,32 @@ class ConvNet(object):
     # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
     # of the output affine layer.                                              #
     ############################################################################
-    pass
+    self.param.['gamma'] = np.random.normal(0, weight_scale, 1)
+    self.beta = np.random.normal(0, weight_scale, 1)
+    self.bn_param = {}
+        
+    C, H, W = input_dim
+    pool_size = 2
+    stride = 2
+    
+    H_prime = H - (filter_size-1) 
+    W_prime = W - (filter_size-1)
+    H_pool = 1 + (H_prime - pool_size) // stride 
+    W_pool = 1 + (W_prime - pool_size) // stride
+    
+    self.params['W1'] = np.random.normal(0, weight_scale, (num_filters, C, filter_size, filter_size)).astype(dtype)
+    #self.params['b1'] = np.zeros((num_filters, H_prime, W_prime)).astype(dtype)
+    self.params['b1'] = np.zeros((1,num_filters,1,1)).astype(dtype)
+    self.params['W2'] = np.random.normal(0, weight_scale, (num_filters*H_pool*W_pool, hidden_dim)).astype(dtype)
+    self.params['b2'] = np.zeros(hidden_dim).astype(dtype)
+    self.params['W3'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes)).astype(dtype)
+    self.params['b3'] = np.zeros(num_classes).astype(dtype)
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
-
-    for k, v in self.params.iteritems():
-      self.params[k] = v.astype(dtype)
+#    for k, v in self.params.iteritems():
+#      self.params[k] = v.astype(dtype)
      
  
   def loss(self, X, y=None):
@@ -79,7 +98,15 @@ class ConvNet(object):
     # computing the class scores for X and storing them in the scores          #
     # variable.                                                                #
     ############################################################################
-    pass
+    a1, cache_a1 = conv_forward(X, W1)
+    a1 = a1 + b1
+    h1, cache_h1 = relu_forward(a1)
+    h1_maxpool, cache_h1_maxpool = max_pool_forward(h1, pool_param)
+    a2, cache_a2 = fc_forward(h1_maxpool, W2, b2)
+    h2, cache_h2 = relu_forward(a2)
+    a3, cache_a3 = fc_forward(h2, W3, b3)
+    scores = a3
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -94,7 +121,31 @@ class ConvNet(object):
     # data loss using softmax, and make sure that grads[k] holds the gradients #
     # for self.params[k]. Don't forget to add L2 regularization!               #
     ############################################################################
-    pass
+    loss, dout = softmax_loss(scores, y)
+    loss += self.reg/2*(np.linalg.norm(self.params["W1"])**2 
+                        + np.linalg.norm(self.params["b1"])**2 
+                        + np.linalg.norm(self.params["W2"])**2 
+                        + np.linalg.norm(self.params["b2"])**2
+                        + np.linalg.norm(self.params["W3"])**2 
+                        + np.linalg.norm(self.params["b3"])**2)
+    dh2, grads['W3'], grads['b3'] = fc_backward(dout, cache_a3)
+    da2 = relu_backward(dh2, cache_h2)
+    dh1_maxpool, grads['W2'], grads['b2'] = fc_backward(da2, cache_a2)
+    dh1 = max_pool_backward(dh1_maxpool, cache_h1_maxpool)
+    da1 = relu_backward(dh1, cache_h1)
+    #grads['b1'] = da1.sum(axis=0)
+    grads['b1'] = da1.sum(axis=0).sum(axis=1).sum(axis=1).reshape((1,b1.shape[1],1,1))
+    dx, grads['W1'] = conv_backward(da1, cache_a1)
+    
+    print(grads['b1'].shape)
+    print(b1.shape)
+    grads['W1'] += self.reg * self.params['W1']
+    grads['b1'] += self.reg * self.params['b1']
+    grads['W2'] += self.reg * self.params['W2']
+    grads['b2'] += self.reg * self.params['b2']
+    grads['W3'] += self.reg * self.params['W3']
+    grads['b3'] += self.reg * self.params['b3']
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

@@ -1,6 +1,7 @@
 from logistic import *
 from solver import *
 import pickle
+import matplotlib.pyplot as plt
 
 with open('data.pkl','rb') as f:
     raw_data = pickle.load(f,encoding='latin1')
@@ -39,6 +40,10 @@ y_test = y_raw[N_val:]
 
 test_acc = solver.check_accuracy(X_test, y_test)
 print(test_acc)
+
+plt.plot(solver.val_acc_history, label="val_acc")
+plt.plot(solver.train_acc_history, label="train_acc")
+plt.legend(loc="lower right")
 #(Iteration 17901 / 18000) loss: 0.117429
 #(Epoch 3000 / 3000) train acc: 0.966667; val_acc: 0.945000
 #test_acc = 0.935

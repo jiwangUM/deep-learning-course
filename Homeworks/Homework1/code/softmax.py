@@ -108,7 +108,7 @@ class SoftmaxClassifier(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        loss, dout = softmax_losss(scores, y)
+        loss, dout = softmax_loss(scores, y)
         
         if not self.hidden_dim:
             loss += self.reg/2*(np.linalg.norm(self.params["W1"])**2 + np.linalg.norm(self.params["b1"])**2)
