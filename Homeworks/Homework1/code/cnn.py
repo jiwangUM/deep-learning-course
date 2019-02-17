@@ -18,7 +18,7 @@ class ConvNet(object):
   
   def __init__(self, input_dim=(1, 28, 28), num_filters=32, filter_size=7,
                hidden_dim=100, num_classes=10, weight_scale=1e-3, reg=0.0,
-               dtype=np.float32):
+               dtype=np.float32, dropout = False, batch_norm = False):
     """
     Initialize a new network.
     
@@ -32,6 +32,8 @@ class ConvNet(object):
       of weights.
     - reg: Scalar giving L2 regularization strength
     - dtype: numpy datatype to use for computation.
+    - dropout: True turn on the dropout
+    - batch_norm: True turn on the batch_norm
     """
     self.params = {}
     self.reg = reg
@@ -46,11 +48,10 @@ class ConvNet(object):
     # and 'b1'; use keys 'W2' and 'b2' for the weights and biases of the       #
     # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
     # of the output affine layer.                                              #
-    ############################################################################
-    #self.param.['gamma'] = np.random.normal(0, weight_scale, 1)
-    #self.beta = np.random.normal(0, weight_scale, 1)
-    #self.bn_param = {}
-        
+    ############################################################################    
+    self.batch_norm = batch_norm
+    self.dropout = dropout
+    
     C, H, W = input_dim
     pool_size = 2
     stride = 2
@@ -67,6 +68,20 @@ class ConvNet(object):
     self.params['b2'] = np.zeros(hidden_dim).astype(dtype)
     self.params['W3'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes)).astype(dtype)
     self.params['b3'] = np.zeros(num_classes).astype(dtype)
+    
+    self.dropout_param = {
+            'p': 0.5,
+            'mode': 'train'
+            }
+    self.bn_param = { 
+            'mode': 'train',
+            'eps': 1e-5,
+            'momentum': 0.9
+            }
+    
+    if self.batch_norm:
+        self.params['gamma'] = np.random.normal(0, weight_scale, (num_filters * H_prime * W_prime)).astype(dtype)
+        self.params['beta']  = np.zeros(num_filters * H_prime * W_prime).astype(dtype)
     
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -98,12 +113,30 @@ class ConvNet(object):
     # computing the class scores for X and storing them in the scores          #
     # variable.                                                                #
     ############################################################################
+    if y is None:
+        self.dropout_param['mode'] = 'test'
+        self.bn_param['mode'] = 'test'
+    else:
+        self.dropout_param['mode'] = 'train'
+        self.bn_param['mode'] = 'train'
+    
+    
     a1, cache_a1 = conv_forward(X, W1)
     a1 = a1 + b1.reshape(1,b1.shape[0],1,1)
+    
+    if self.batch_norm:
+        a1_bn, cache_a1_bn = batchnorm_forward(a1.reshape((a1.shape[0],-1)), self.params['gamma'], self.params['beta'], self.bn_param)
+        a1 = a1_bn.reshape(a1.shape)
+        
     h1, cache_h1 = relu_forward(a1)
     h1_maxpool, cache_h1_maxpool = max_pool_forward(h1, pool_param)
     a2, cache_a2 = fc_forward(h1_maxpool, W2, b2)
     h2, cache_h2 = relu_forward(a2)
+    
+    if self.dropout:
+        h2_dropout, cache_h2_dropout = dropout_forward(h2, self.dropout_param)
+        h2 = h2_dropout / self.dropout_param['p']
+    
     a3, cache_a3 = fc_forward(h2, W3, b3)
     scores = a3
     
@@ -128,11 +161,22 @@ class ConvNet(object):
                         + np.linalg.norm(self.params["b2"])**2
                         + np.linalg.norm(self.params["W3"])**2 
                         + np.linalg.norm(self.params["b3"])**2)
+    
     dh2, grads['W3'], grads['b3'] = fc_backward(dout, cache_a3)
+    
+    if self.dropout:
+        dh2 = dh2 / self.dropout_param['p']
+        dh2 = dropout_backward(dh2, cache_h2_dropout)
+        
     da2 = relu_backward(dh2, cache_h2)
     dh1_maxpool, grads['W2'], grads['b2'] = fc_backward(da2, cache_a2)
     dh1 = max_pool_backward(dh1_maxpool, cache_h1_maxpool)
     da1 = relu_backward(dh1, cache_h1)
+    
+    if self.batch_norm:
+        da1_bn, grads['gamma'], grads['beta'] = batchnorm_backward(da1.reshape((da1.shape[0],-1)), cache_a1_bn)
+        da1 = da1_bn.reshape(da1.shape)
+    
     #grads['b1'] = da1.sum(axis=0)
     grads['b1'] = da1.sum(axis=0).sum(axis=1).sum(axis=1)
     dx, grads['W1'] = conv_backward(da1, cache_a1)

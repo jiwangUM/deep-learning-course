@@ -41,7 +41,7 @@ data = {
         'y_val': y_val,
         }
 
-model = ConvNet(num_filters=1, filter_size=7, hidden_dim=15, weight_scale=1e-1, reg=0.001)
+model = ConvNet(num_filters=1, filter_size=7, hidden_dim=30, weight_scale=1e-1, reg=0.001, dropout=True, batch_norm=True)
 
 
 solver = Solver(model, data,
@@ -51,7 +51,7 @@ solver = Solver(model, data,
                 'learning_rate': 1e-2,
               },
               lr_decay=0.99995,
-              num_epochs=10, batch_size=10,
+              num_epochs=20, batch_size=10,
               print_every=100)
 
 solver.train()

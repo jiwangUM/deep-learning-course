@@ -169,6 +169,10 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
 
     out, cache = None, None
+    
+    mu = np.mean(x, axis=0)
+    var = np.var(x, axis=0)
+    sigma = np.sqrt(var+eps)
     if mode == 'train':
         #######################################################################
         # TODO: Implement the training-time forward pass for batch norm.      #
@@ -191,9 +195,6 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
-        mu = np.mean(x, axis=0)
-        var = np.var(x, axis=0)
-        sigma = np.sqrt(var+eps)
         out = gamma * (x - mu)/sigma  + beta
         #out = (x - mu)/sigma
         #out = out * gamma.T + beta.T
