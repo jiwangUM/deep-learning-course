@@ -153,6 +153,9 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     #############################################################################
     # TODO: Implement the forward pass for a single timestep of an LSTM.        #
     # You may want to use the numerically stable sigmoid implementation above.  #
+    # For Wx of shape D x 4H, you may assume they are the sequence of parameters#
+    # for forget gate, input gate, concurrent input, output gate. Wh and b also #
+    # follow the same order.                                                    #
     #############################################################################
 
 
@@ -299,11 +302,11 @@ def temporal_fc_forward(x, w, b):
     an affine function to transform each of those vectors into a new vector of
     dimension M.
     Inputs:
-    - x: Input data of shape (T, N, D)
+    - x: Input data of shape (N, T, D)
     - w: Weights of shape (D, M)
     - b: Biases of shape (M,)
     Returns a tuple of:
-    - out: Output data of shape (T, N, M)
+    - out: Output data of shape (N, T, M)
     - cache: Values needed for the backward pass
     """
 
@@ -312,10 +315,10 @@ def temporal_fc_backward(dout, cache):
     """
     Backward pass for temporal fully-connected layer.
     Input:
-    - dout: Upstream gradients of shape (T, N, M)
+    - dout: Upstream gradients of shape (N, T, M)
     - cache: Values from forward pass
     Returns a tuple of:
-    - dx: Gradient of input, of shape (T, N, D)
+    - dx: Gradient of input, of shape (N, T, D)
     - dw: Gradient of weights, of shape (D, M)
     - db: Gradient of biases, of shape (M,)
     """
