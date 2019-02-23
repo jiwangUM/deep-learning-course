@@ -8,14 +8,18 @@ import time
 
 import math
 from collections import OrderedDict
-
+import matplotlib.pyplot as plt
 
 class VGG(nn.Module):
     # You will implement a simple version of vgg11 (https://arxiv.org/pdf/1409.1556.pdf)
     # Since the shape of image in CIFAR10 is 32x32x3, much smaller than 224x224x3, 
     # the number of channels and hidden units are decreased compared to the architecture in paper
+    #self.train_acc_history = []
+    #self.test_acc_history = []
     def __init__(self):
         super(VGG, self).__init__()
+        self.train_acc_history = []
+        self.test_acc_history = []
         self.conv = nn.Sequential(
             # Stage 1
             # TODO: convolutional layer, input channels 3, output channels 8, filter size 3
@@ -105,6 +109,9 @@ def train(trainloader, net, criterion, optimizer, device):
                       (epoch + 1, i + 1, running_loss / 100, end-start))
                 start = time.time()
                 running_loss = 0.0
+        net.train_acc_history.append(test(trainloader, net, device))
+        net.test_acc_history.append(test(testloader, net, device))
+            
     print('Finished Training')
 
 
@@ -120,8 +127,10 @@ def test(testloader, net, device):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+    acc = 100 * correct / total
     print('Accuracy of the network on the 10000 test images: %d %%' % (
-        100 * correct / total))
+        acc))
+    return acc
 
 
 def main():
@@ -148,6 +157,10 @@ def main():
     train(trainloader, net, criterion, optimizer, device)
     test(trainloader, net, device)
     test(testloader, net, device)
+    
+    plt.plot(net.test_acc_history, label="val_acc")
+    plt.plot(net.train_acc_history, label="train_acc")
+    plt.legend(loc="lower right")
     
 
 if __name__== "__main__":
