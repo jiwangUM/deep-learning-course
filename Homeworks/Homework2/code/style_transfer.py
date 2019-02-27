@@ -81,6 +81,9 @@ def content_loss(content_weight, content_current, content_target):
     Returns:
     - scalar content loss
     """
+#    content_loss = content_weight * np.sum(np.power(content_current - content_target, 2))
+    content_loss = content_weight * torch.sum(torch.pow(content_current - content_target, 2))
+    return content_loss
     
 
 
@@ -127,6 +130,12 @@ def style_loss(feats, style_layers, style_targets, style_weights):
     """
     # Hint: you can do this with one for loop over the style layers, and should
     # not be very much code (~5 lines). You will need to use your gram_matrix function.
+    style_loss = 0
+    for i, layer_num in enumerate(style_layers):
+        G = gram_matrix(feats[layer_num])
+#        style_loss += style_weights[i] * np.sum(np.power(G - style_targets[i],2))
+        style_loss += style_weights[i] * torch.sum(torch.pow(G - style_targets[i],2))
+    return style_loss
 
 
 
@@ -143,6 +152,12 @@ def tv_loss(img, tv_weight):
       for img weighted by tv_weight.
     """
     # Your implementation should be vectorized and not require any loops!
+    N, C, H, W = img.shape
+    diff1 = img[:, :, :, 1:] - img[:, :, :, :W-1]
+    diff2 = img[:, :, 1:, :] - img[:, :, :H-1, :]
+#    loss = tv_weight * np.sum(np.power(diff1,2) + np.power(diff2,2)) 
+    loss = tv_weight * torch.sum(torch.pow(diff1,2)) + torch.sum(torch.pow(diff2,2))
+    return loss
 
 
 
@@ -166,7 +181,7 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
 
     dtype = torch.FloatTensor
     # Uncomment out the following line if you're on a machine with a GPU set up for PyTorch!
-    # dtype = torch.cuda.FloatTensor
+    dtype = torch.cuda.FloatTensor
 
     # Load the pre-trained SqueezeNet model.
     cnn = torchvision.models.squeezenet1_1(pretrained=True).features
@@ -216,9 +231,15 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
     axarr[1].set_title('Style Source Img.')
     axarr[0].imshow(deprocess(content_img.cpu()))
     axarr[1].imshow(deprocess(style_img.cpu()))
+    plt.savefig('origin'+style_image.split('/')[1].split('.')[0]+'.png')
     plt.show()
+    #Must put this before plt.show
+#    plt.savefig('origin'+style_image.split('/')[1].split('.')[0]+'.png')
     plt.figure()
     
+    
+    
+    loss_history = []
     for t in range(200):
         if t < 190:
             img.clamp_(-1.5, 1.5)
@@ -227,8 +248,12 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
         feats = extract_features(img_var, cnn)
         
         #TODO:Compute loss
-
-
+        loss_content = content_loss(content_weight, feats[content_layer], content_target)
+        loss_style = style_loss(feats, style_layers, style_targets, style_weights)
+        loss_tv = tv_loss(img_var, tv_weight)
+        loss = loss_content + loss_style + loss_tv
+        loss_history.append(loss)
+        loss.backward()
 
         # Perform gradient descents on our image values
         if t == decay_lr_at:
@@ -244,7 +269,12 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
     print('Iteration {}'.format(t))
     plt.axis('off')
     plt.imshow(deprocess(img.cpu()))
+    plt.savefig('tranfered'+style_image.split('/')[1].split('.')[0]+'.png')
     plt.show()
+    
+    plt.title("learning curve of loss")
+    plt.plot(loss_history)
+    plt.savefig(style_image.split('/')[1].split('.')[0] + '_learning_curve.png')
 
 def main():
     # Composition VII + Tubingen
