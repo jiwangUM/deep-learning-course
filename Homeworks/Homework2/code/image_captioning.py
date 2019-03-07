@@ -12,7 +12,7 @@ def main():
     # The dataset can be downloaded in https://drive.google.com/drive/folders/1zCq7kS9OXc2mgaOzDimAwiBblECWeBtO?usp=sharing
     # The dataset contains the feature of images in MSCOCO dataset      
     # Load COCO data from disk; this returns a dictionary
-    small_data = load_coco_data(max_train=50)
+    small_data = load_coco_data(max_train=5000)
     
     # Experiment with vanilla RNN
     small_rnn_model = CaptioningRNN(

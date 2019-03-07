@@ -1,0 +1,30 @@
+P6.1
+[epoch 30, iter   400] loss: 0.108 eplased time 1.099
+Accuracy of the network on the 10000 test images: 97 %
+Accuracy of the network on the 10000 test images: 95 %
+Accuracy of the network on the 10000 test images: 95 %
+
+P6.2
+[epoch 5, iter   400] loss: 0.110 eplased time 0.748
+Accuracy of the network on the 10000 test images: 96 %
+Accuracy of the network on the 10000 test images: 95 %
+Accuracy of the network on the 10000 test images: 94 %
+
+P6.3
+[epoch 7, iter   400] loss: 0.062 eplased time 0.709
+Accuracy of the network on the 10000 test images: 98 %
+Accuracy of the network on the 10000 test images: 96 %
+Accuracy of the network on the 10000 test images: 95 %
+
+P6.4
+[epoch 12, iter   400] loss: 0.037 eplased time 0.862
+Accuracy of the network on the 10000 test images: 99 %
+Accuracy of the network on the 10000 test images: 96 %
+Accuracy of the network on the 10000 test images: 95 %
+
+
+P6.5
+[epoch 3, iter   400] loss: 0.077 eplased time 0.845
+Accuracy of the network on the 10000 test images: 98 %
+Accuracy of the network on the 10000 test images: 96 %
+Accuracy of the network on the 10000 test images: 95 %

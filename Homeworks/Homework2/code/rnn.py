@@ -133,24 +133,35 @@ class CaptioningRNN(object):
 
         # Forward Pass
         # (1)
-        
+        h0, cache_h0 = fc_forward(features, W_proj, b_proj)
         # (2)
-        
+        x, cache_x = word_embedding_forward(captions_in, W_embed) #original captions_in is (N,T)
+        x = np.swapaxes(x, 0, 1) #but rnn_forward need (T,N)
         # (3)
-        
+        if self.cell_type == 'rnn':
+            h, cache_h = rnn_forward(x, h0, Wx, Wh, b)
+        else:
+            h, cache_h = lstm_forward(x, h0, Wx, Wh, b)
+        h = np.swapaxes(h, 0, 1) #but temporal_fc_forward need (N,T)
         # (4)
-        
+        out, cache_out = temporal_fc_forward(h, W_vocab, b_vocab)
         # (5)
-
+        loss, dout = temporal_softmax_loss(out, captions_out, mask)
 
         # Gradients
         # (4)
-        
+        dh, grads['W_vocab'], grads['b_vocab'] = temporal_fc_backward(dout, cache_out)
         # (3)
-        
+        dh = np.swapaxes(dh, 0, 1)
+        if self.cell_type == 'rnn':
+            dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dh, cache_h)
+        else:
+            dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(dh, cache_h)
         # (2)
-        
+        dx = np.swapaxes(dx, 0, 1)
+        grads['W_embed'] = word_embedding_backward(dx, cache_x)
         # (1)
+        _, grads['W_proj'], grads['b_proj'] = fc_backward(dh0, cache_h0)
 
 
         ############################################################################
@@ -182,7 +193,7 @@ class CaptioningRNN(object):
         """
         N = features.shape[0]
         captions = self._null * np.ones((N, max_length), dtype=np.int32)
-
+        
         # Unpack parameters
         W_proj, b_proj = self.params['W_proj'], self.params['b_proj']
         W_embed = self.params['W_embed']
@@ -210,8 +221,28 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-
-
+        
+        h, _ = fc_forward(features, W_proj, b_proj)
+        c = np.zeros_like(h)
+        captions[:, 0] = self._start
+        #[BUG]: same issue with 1D array: after slicing captions[:, 0] returns (2,) which is row array. * with a column array becomes (2,2)
+#        x = np.ones((N, 1), dtype=np.int32) * captions[:, 0]
+#        print(captions[:, 0].shape) -> (2,)
+#        print(x.shape) ->(2,2)
+        #[BUG]: if set x to (N,1), after word_embedding_forward it will return (N,1,D) instead of (N,D), need np.squeeze then
+#        x = np.ones((N, 1), dtype=np.int32) * self._start
+        x = np.ones(N, dtype=np.int32) * self._start
+        
+        for t in range(1, max_length):
+            x, _ = word_embedding_forward(x, W_embed)
+            if self.cell_type == 'rnn':
+                h, _ = rnn_step_forward(x, h, Wx, Wh, b)
+            else:
+                h, c, _ = lstm_step_forward(x, h, c, Wx, Wh, b)
+            scores, _ = fc_forward(h, W_vocab, b_vocab)
+            idx = np.argmax(scores, axis=1)
+            captions[:, t] = idx
+            x = captions[:, t]
 
         ############################################################################
         #                             END OF YOUR CODE                             #

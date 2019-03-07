@@ -195,8 +195,17 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     # for forget gate, input gate, concurrent input, output gate. Wh and b also #
     # follow the same order.                                                    #
     #############################################################################
-
-
+    N, H = prev_h.shape
+    A = x.dot(Wx) + prev_h.dot(Wh) + b #(N, 4H)
+    f = sigmoid(A[:, :H]) #(N, H)
+    i = sigmoid(A[:, H:2*H])
+    c = np.tanh(A[:, 2*H:3*H])
+    o = sigmoid(A[:, 3*H:])
+    
+    next_c = f * prev_c + i * c
+    next_h = o * np.tanh(next_c)
+    
+    cache = (x, prev_h, prev_c, Wx, Wh, b, f, i, c, o, next_c)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -226,7 +235,29 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
     # the output value from the nonlinearity.                                   #
     #############################################################################
-
+    x, prev_h, prev_c, Wx, Wh, b, f, i, c, o, next_c = cache
+    N, H = prev_h.shape
+    
+    do_t = dnext_h * np.tanh(next_c)
+    dnext_c = dnext_c + dnext_h * o * (1 - np.tanh(next_c)**2)
+    
+    df_t = dnext_c * prev_c
+    di_t = dnext_c * c
+    dc_t = dnext_c * i
+    
+    dprev_c = dnext_c * f
+    dAf = df_t * f * (1-f)
+    dAi = di_t * i * (1-i)
+    dAc = dc_t * (1-np.power(c,2))
+    dAo = do_t * o * (1-o)
+    
+    dA = np.hstack((dAf, dAi, dAc, dAo))
+    
+    dx = dA.dot(Wx.T)
+    dprev_h = dA.dot(Wh.T)
+    dWx = x.T.dot(dA)
+    dWh = prev_h.T.dot(dA)
+    db = dA.sum(axis=0)
 
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -259,8 +290,19 @@ def lstm_forward(x, h0, Wx, Wh, b):
     # TODO: Implement the forward pass for an LSTM over an entire timeseries.   #
     # You should use the lstm_step_forward function that you just defined.      #
     #############################################################################
-
-
+    T, N, D = x.shape
+    N, H = h0.shape
+    c = np.zeros_like(h0)
+    
+    h = np.empty((T, N, H))
+    next_h = h0
+    next_c = c
+    cache = []
+    for t in range(T):
+        next_h, next_c, cache_t = lstm_step_forward(x[t], next_h, next_c, Wx, Wh, b)
+        h[t] = next_h
+        cache.append(cache_t)
+    
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -286,7 +328,24 @@ def lstm_backward(dh, cache):
     # TODO: Implement the backward pass for an LSTM over an entire timeseries.  #
     # You should use the lstm_step_backward function that you just defined.     #
     #############################################################################
+    T, N, H = dh.shape
+    x, prev_h, prev_c, Wx, Wh, b, f, i, c, o, next_c = cache[0]
+    N, D = x.shape
 
+    dprev_h = np.zeros_like(dh[0])
+    dprev_c = np.zeros_like(dh[0])
+    dx = np.empty((T,N,D))
+    dWx = np.zeros_like(Wx)
+    dWh = np.zeros_like(Wh)
+    db = np.zeros_like(b)
+    
+    for t in range(T-1, -1, -1):
+        dx[t], dprev_h, dprev_c, dWx_t, dWh_t, db_t = lstm_step_backward(dh[t] + dprev_h, dprev_c, cache[t])
+        dWx += dWx_t
+        dWh += dWh_t
+        db += db_t
+        
+    dh0 = dprev_h
 
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -347,6 +406,14 @@ def temporal_fc_forward(x, w, b):
     - out: Output data of shape (N, T, M)
     - cache: Values needed for the backward pass
     """
+    N, T, D = x.shape
+    D, M = w.shape
+    x2d = x.reshape((-1, D))
+    out = x2d.dot(w) + b
+    out = out.reshape((N, T, M))
+    
+    cache = (x, w, b)
+    return out, cache
 
 
 def temporal_fc_backward(dout, cache):
@@ -360,6 +427,17 @@ def temporal_fc_backward(dout, cache):
     - dw: Gradient of weights, of shape (D, M)
     - db: Gradient of biases, of shape (M,)
     """
+    x, w, b = cache
+    N, T, D = x.shape
+    D, M = w.shape
+    dout2d = dout.reshape((-1, M))
+    x2d = x.reshape((-1, D))
+    
+    dx = dout2d.dot(w.T).reshape((N, T, D))
+    dw = x2d.T.dot(dout2d)
+    db = dout2d.sum(axis=0)
+    
+    return dx, dw, db
 
 
 
@@ -384,8 +462,48 @@ def temporal_softmax_loss(x, y, mask):
       the scores at x[i, t] should contribute to the loss.
     Returns a tuple of:
     - loss: Scalar giving loss
-    - dx: Gradient of loss with respect to scores x.
+    - dx: Gradient of loss with respect to scores x.`
     """
+    
+    N, T, V = x.shape
+#    x2d = x.reshape((N*T, V))
+    x2d = x.reshape(N*T, V)
+    mask1d = (mask.reshape(N*T) == 1)
+    y1d_mask = y.reshape(N*T)[mask1d]
+    
+#    [BUG1]: Mask is not boolean array but int array
+#    x2d_exp_mask = x2d[mask1d] (dim: (60, 8)) vs x2d_exp_mask = x2d[mask1d == 1] (dim: (26, 8))
+#    x2d_exp_mask = np.exp(x2d[mask1d]) 
+    x2d_mask = x2d[mask1d]
+    x2d_mask_exp = np.exp(x2d_mask - np.max(x2d_mask, axis=1, keepdims=True)) #substract max can prevent exp(a really big number)
+    x2d_mask_exp_sum = np.sum(x2d_mask_exp, axis=1, keepdims=True)
+    x2d_mask_softmax = x2d_mask_exp / x2d_mask_exp_sum
+    
+    #[BUG2]: 2D array index into 1D has to do things like this:
+    #np.arange() is like range() in python
+#    loss = -np.sum(np.log(x2d_mask_exp[np.arange(y1d_mask.shape[0]), y1d_mask] / x2d_mask_exp_sum)) / N
+#    Not like this:
+#    loss = np.sum(-np.log(x2d_mask_exp[y_mask] / x2d_mask_exp_sum)) / N
 
+    #BUG3: Dimention Problem of 1D !!!!
+#    debug0 = x2d_mask_exp[np.arange(y1d_mask.shape[0]), y1d_mask] --> this will generate (26,) array
+#    debug1 = x2d_mask_exp[np.arange(y1d_mask.shape[0]), y1d_mask] / x2d_mask_exp_sum --> (26,)/(26,1) is not (26,) but (26,26)!!!
 
+    loss = -np.sum(np.log(x2d_mask_softmax[np.arange(y1d_mask.shape[0]), y1d_mask])) / N
+ 
+    dx2d = np.zeros_like(x2d)
+    dx2d[mask1d] = x2d_mask_softmax
 
+    #[BUG4]: Slicing/view doesn't work this way
+#    dx2d[mask1d][y1d_mask] -= 1 --> dx2d[mask1d] returns a 2D array first. Then [y1d_mask] just used as row index not column
+#    This suppose to work but not, probably because dx2d[mask1d] returns a new array not a view. So any changes/writes will not
+#    take effects on the original array. But any read/print can see the original value
+#    dx2d[mask1d][np.arange(y1d_mask.shape[0]), y1d_mask] -= 1
+#    print(a[mask][np.arange(ymask.shape[0]), ymask])
+#    Therefore only this works, even though mask1d and y1d_mask has different length, but it's fine because mask1d is boolean array
+#    if it were a int array, then they must have the same length
+    dx2d[mask1d, y1d_mask] -= 1 
+    
+    dx = dx2d.reshape(x.shape) / N
+    
+    return loss, dx
